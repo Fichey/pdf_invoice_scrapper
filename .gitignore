@@ -1,0 +1,5 @@
+# Ignore everything inside the data directory
+data/
+
+# But keep the directory itself (so Git tracks the empty folder if needed)
+!data/.gitkeep
