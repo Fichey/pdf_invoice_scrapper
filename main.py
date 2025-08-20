@@ -15,15 +15,31 @@ TABLE_SETTINGS = {
 }
 FEDEX_HEADER = ['AWB', 'Data wysylki', 'Usługa', 'Sztuki', 'Waga', 'Numer ref.', 'Podlega VAT', 'Bez VAT', 'Łącznie']
 
+def extract_invoice_number(pdf: pdfplumber.PDF) -> str | None:
+
+    text = pdf.pages[0].extract_text()
+    match = re.search(r"Numer\s+faktury\s+VAT:\s*([0-9]+)", text)
+    if match:
+        return match.group(1)
+    return None
+
+def extract_invoice_date(pdf: pdfplumber.PDF) -> str | None:
+
+    text = pdf.pages[0].extract_text()
+    match = re.search(r"Data\s+faktury:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+    if match:
+        return match.group(1)
+    return None
+
 def extract_tables_single_strategy(path: str):
     with pdfplumber.open(path) as pdf:
         tables = []
         for page in pdf.pages:
             tables.extend(page.extract_tables(TABLE_SETTINGS))
-        return tables
-    return []
+        return tables, extract_invoice_number(pdf), extract_invoice_date(pdf)
+    return [], None, None
 
-def handle_tables(tables):
+def handle_tables(tables, numer_faktury: str | None = None, data_faktury: str | None = None):
     tables_by_type = {
         "FedEx": []
     }
@@ -38,7 +54,8 @@ def handle_tables(tables):
             continue
         if type == "FedEx":
             for table in tables_by_type[type]:
-                result = handle_fedex_table(table)
+                result = {"numer_faktury": numer_faktury,
+                          "data_faktury" : data_faktury} | handle_fedex_table(table)
                 if result:
                     airtable_records.append({
                         "fields": result
@@ -168,8 +185,11 @@ def handle_fedex_table(table):
         #             waga = float(dane_split[2])
         #             numer_referencyjny = dane_split[7].replace("(", "").replace(")", "")
 
-
-
+    informacje_nadawca = rows[1][0].replace('\n', ' ').replace('Nadawca ','').strip()
+    informacje_odbiorca = rows[1][2].replace('\n', ' ').replace('Odbiorca ','').strip()
+    odebral = re.search(r":\s*([^\d]+)",
+                        rows[2][0]).group(1).strip() if re.search(r":\s*([^\d]+)", rows[2][0]) else None
+    czas_odebrania = re.search(r"\d.*", rows[2][0]).group(0) if re.search(r"\d.*", rows[2][0]) else None
     # print(f"Dane: {dane}")
     return {
         "typ": "FedEx",
@@ -185,7 +205,11 @@ def handle_fedex_table(table):
         "numer_referencyjny": numer_referencyjny,
         "podlega_vat": podlega_vat,
         "bez_vat": bez_vat,
-        "lacznie": lacznie
+        "lacznie": lacznie,
+        "informacje_nadawca": informacje_nadawca,
+        "informacje_odbiorca": informacje_odbiorca,
+        "odebral": odebral,
+        "czas_odebrania": czas_odebrania
     }
 
 
@@ -193,9 +217,11 @@ def handle_fedex_table(table):
 def main():
     path = "data/invoice1.pdf"
     out_path = "data/records.json"
-    tables = extract_tables_single_strategy(path)
+    tables, numer_faktury, data_faktury = extract_tables_single_strategy(path)
 
-    records = handle_tables(tables)
+    print(tables[1])
+
+    records = handle_tables(tables, numer_faktury, data_faktury)
 
 
     with open(out_path, "w", encoding="utf-8") as f:
