@@ -361,9 +361,13 @@
                     spinner.style.display = 'none';
                     progressBar.style.display = 'none';
 
+                    // Always call showResult with full data
+                    // If there's an error key, pass type 'error', else 'success'
                     if (data.error) {
-                        showResult('error', 'Processing Error', data.error);
+                        // Show error message but also pass full data for logs if present
+                        showResult('error', 'Processing Error', data.error, data);
                     } else {
+                        // Show success message
                         showResult('success', 'Success!', data.message, data);
                     }
                 }, 500);
