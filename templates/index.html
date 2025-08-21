@@ -392,9 +392,9 @@
 
             // Show logs or warnings above success notification if present
             const logWarning = document.getElementById('logWarning');
-            if (data && data.log && data.log.length > 0) {
+            if (data && data.error && data.error.length > 0) {
                 logWarning.style.display = 'block';
-                logWarning.innerHTML = "<strong>Log / Warnings:</strong><br>" + data.log.replace(/\n/g, "<br>");
+                logWarning.innerHTML = "<strong>Log / Warnings:</strong><br>" + data.error.replace(/\n/g, "<br>");
             } else {
                 logWarning.style.display = 'none';
                 logWarning.innerHTML = '';
