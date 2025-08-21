@@ -21,12 +21,24 @@ headers = {
 def find_existing_records(unique_values, unique_field):
     if not unique_values:
         return []
+
+    records = []
     formula_parts = [f"{{{unique_field}}}='{v}'" for v in unique_values]
     filter_formula = "OR(" + ",".join(formula_parts) + ")"
+
     url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME}?filterByFormula={filter_formula}"
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    return response.json().get("records", [])
+
+    while url:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        records.extend(data.get("records", []))
+        url = data.get("offset")
+        if url:
+            # Append offset query param for next page
+            url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME}?filterByFormula={filter_formula}&offset={url}"
+
+    return records
 
 def send_to_airtable(records, unique_field="AWB"):
     # Extract unique keys from incoming records
@@ -109,6 +121,7 @@ def upload_file():
         airtable_result = send_to_airtable(records, unique_field="AWB")
 
         # After parsing the file
+        records, metadata = parser.parse_pdf(temp_path)
         log_messages = metadata.get("log") if "log" in metadata else None
 
         # Now include log in JSON, even on success:
