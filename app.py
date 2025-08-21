@@ -98,11 +98,7 @@ def upload_file():
             temp_path = tmp.name
 
         parser = InvoiceParser()
-        try:
-            records, metadata = parser.parse_pdf(temp_path)
-        finally:
-            if os.path.exists(temp_path):
-                os.unlink(temp_path)
+        records, metadata = parser.parse_pdf(temp_path)
 
         if 'error' in metadata:
             return jsonify({'error': metadata['error']}), 400

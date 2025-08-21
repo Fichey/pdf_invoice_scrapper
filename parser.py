@@ -99,6 +99,8 @@ class InvoiceParser:
         if headers != self.FEDEX_HEADER:
             return None
 
+        AWB = None
+        dane = None
         try:
             # Extract AWB and shipping date
             AWB = rows[0][0].split('\n')[0].split(' ')[0]
@@ -200,17 +202,11 @@ class InvoiceParser:
                             print(repr(rows[0][3]) , dane)
                             raise NotImplementedError("Nie obsługiwane jeszcze przypadki z wagą i numerem referencyjnym w dwóch liniach")
             except NotImplementedError as nie:
-                AWB = ''  # extract AWB if possible from context
-                dane = ''  # extract dane if possible
-                # Log or re-raise with detailed message
-                raise NotImplementedError(f"{nie}  AWB: {AWB} Dane: {dane}")
+                raise NotImplementedError(f"{nie} AWB: {AWB} Dane: {dane}") from None
             except ValueError as ve:
-                AWB = ''  # similarly extract AWB for context
-                dane = ''
-                raise ValueError(f"Błąd parsowania danych FedEx: {ve}. AWB: {AWB} Dane: {dane}")
+                raise ValueError(f"Błąd parsowania danych FedEx: {ve}. AWB: {AWB} Dane: {dane}") from None
             except Exception as e:
-                # Optional: catch other unexpected exceptions
-                raise RuntimeError(f"Unexpected error: {e}")
+                raise RuntimeError(f"Unexpected error: {e}. AWB: {AWB} Dane: {dane}") from None
             # Extract sender and recipient information
             informacje_nadawca = rows[1][0].replace('\n', ' ').replace('Nadawca ','').strip()
             informacje_odbiorca = rows[1][2].replace('\n', ' ').replace('Odbiorca ','').strip()
