@@ -234,7 +234,7 @@
                     <span class="upload-icon">📎</span>
                     <h3>Drop your PDF here</h3>
                     <p>or click to browse files</p>
-                    <button type="button" class="browse-btn" onclick="document.getElementById('fileInput').click()">
+                    <button type="button" class="browse-btn">
                         Choose File
                     </button>
                 </div>
@@ -290,9 +290,10 @@
         dropZone.addEventListener('drop', (e) => {
             e.preventDefault();
             dropZone.classList.remove('drag-over');
-
             const files = e.dataTransfer.files;
             if (files.length > 0) {
+                logWarning.style.display = 'none';
+                logWarning.innerHTML = '';
                 handleFile(files[0]);
             }
         });
@@ -305,6 +306,8 @@
 
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
+                logWarning.style.display = 'none';
+                logWarning.innerHTML = '';
                 handleFile(e.target.files[0]);
             }
         });
@@ -394,7 +397,7 @@
             const logWarning = document.getElementById('logWarning');
             if (data && data.log && data.log.length > 0) {
                 logWarning.style.display = 'block';
-                logWarning.innerHTML = "<strong>Log / Warnings:</strong><br>" + data.log.replace(/\n/g, "<br>");
+                logWarning.innerHTML += "<strong>Warning:</strong><br>" + data.log.replace(/\n/g, "<br>") + "\n";
             } else {
                 logWarning.style.display = 'none';
                 logWarning.innerHTML = '';
@@ -422,6 +425,8 @@
                 resultDetails.style.display = 'block';
             } else {
                 resultDetails.style.display = 'none';
+                resultDetails.innerHTML = '';
+                
             }
         }
 

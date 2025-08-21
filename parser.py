@@ -239,71 +239,50 @@ class InvoiceParser:
                 "czas_odebrania": czas_odebrania
             }
         except Exception as e:
-            print(f"Error processing FedEx table: {e}")
-            return None
+            return {"error": f"Error processing FedEx table: {str(e)}"}
 
-    def handle_tables(self, tables: List, numer_faktury: Optional[str] = None, 
-                     data_faktury: Optional[str] = None) -> List[Dict]:
-        """
-        Process all extracted tables
-
-        Args:
-            tables: List of extracted tables
-            numer_faktury: Invoice number
-            data_faktury: Invoice date
-
-        Returns:
-            List of records in Airtable format
-        """
+    def handle_tables(self, tables, numer_faktury=None, data_faktury=None):
         tables_by_type = {"FedEx": []}
-
         for table in tables:
             if table and len(table) > 0 and table[0] == self.FEDEX_HEADER:
                 tables_by_type["FedEx"].append(table)
 
         airtable_records = []
+        errors = []
 
         for table_type in tables_by_type:
             if not tables_by_type[table_type]:
                 continue
-
             if table_type == "FedEx":
                 for table in tables_by_type[table_type]:
                     base_data = {
                         "numer_faktury": numer_faktury,
                         "data_faktury": data_faktury
                     }
-                    table_data = self.handle_fedex_table(table)
-                    if table_data:
-                        result = {**base_data, **table_data}
-                        airtable_records.append({"fields": result})
+                    result = self.handle_fedex_table(table)
+                    if result is None:
+                        continue
+                    if "error" in result:
+                        errors.append(result["error"])
+                    else:
+                        record = {**base_data, **result}
+                        airtable_records.append({"fields": record})
 
-        return airtable_records
+        return airtable_records, errors
 
-    def parse_pdf(self, pdf_path: str) -> Tuple[List[Dict], Dict]:
-        """
-        Main method to parse PDF and return results
-
-        Args:
-            pdf_path: Path to PDF file
-
-        Returns:
-            Tuple of (airtable_records, metadata)
-        """
+    def parse_pdf(self, pdf_path: str):
         tables, invoice_number, invoice_date = self.extract_tables_single_strategy(pdf_path)
-
         if not tables:
             return [], {"error": "No tables found in PDF"}
 
-        records = self.handle_tables(tables, invoice_number, invoice_date)
-
+        records, errors = self.handle_tables(tables, invoice_number, invoice_date)
         metadata = {
             "invoice_number": invoice_number,
             "invoice_date": invoice_date,
             "tables_found": len(tables),
-            "records_created": len(records)
+            "records_created": len(records),
+            "errors": errors
         }
-
         return records, metadata
 
 

@@ -4,6 +4,9 @@ from flask import Flask, request, jsonify, render_template
 from parser import InvoiceParser
 import requests
 
+from dotenv import load_dotenv
+load_dotenv()
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -115,23 +118,22 @@ def upload_file():
         if 'error' in metadata:
             return jsonify({'error': metadata['error']}), 400
 
+        if not records and metadata.get("errors"):
+            # Return parsing errors if no records
+            return jsonify({'error': 'Parsing errors occurred', 'log': "\n".join(metadata["errors"])}), 400
+
         if not records:
             return jsonify({'error': 'No valid FedEx data found in PDF'}), 400
 
         airtable_result = send_to_airtable(records, unique_field="AWB")
 
-        # After parsing the file
-        records, metadata = parser.parse_pdf(temp_path)
-        log_messages = metadata.get("log") if "log" in metadata else None
-
-        # Now include log in JSON, even on success:
         return jsonify({
             'message': 'File processed successfully',
             'invoice_number': metadata.get('invoice_number'),
             'invoice_date': metadata.get('invoice_date'),
             'records_processed': len(records),
             'airtable_result': airtable_result,
-            'log': log_messages  # <-- Add this!
+            'log': "\n".join(metadata.get('errors', []))  # Include parsing errors as log for UI
         })
 
     except NotImplementedError as nie:
