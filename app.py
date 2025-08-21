@@ -1,6 +1,6 @@
 import os
 import tempfile
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from parser import InvoiceParser
 import requests
 
@@ -77,7 +77,7 @@ def allowed_file(filename):
 
 @app.route('/')
 def index():
-    return "Invoice Parser API Running"
+    return render_template('index.html')
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
