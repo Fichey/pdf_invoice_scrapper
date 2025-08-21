@@ -1,0 +1,11 @@
+step,task,estimated_time,required
+1,Set up Airtable base with correct field structure,10 minutes,Yes
+2,Get Airtable API key and base ID,5 minutes,Yes
+3,Create GitHub repository and push code,5 minutes,Yes
+4,Sign up for Railway account,3 minutes,Yes
+5,Deploy from GitHub on Railway,5 minutes,Yes
+6,Configure environment variables on Railway,5 minutes,Yes
+7,Generate custom domain on Railway,2 minutes,No
+8,Test with sample PDF file,5 minutes,Yes
+9,Share URL with team members,2 minutes,No
+10,Set up monitoring/alerts (optional),15 minutes,No

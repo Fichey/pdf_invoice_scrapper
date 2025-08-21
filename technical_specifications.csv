@@ -1,0 +1,11 @@
+component,technology,purpose
+Web Framework,Flask 2.3.3,HTTP server and request handling
+PDF Processing,pdfplumber 0.10.3,Extract tables and text from PDFs
+HTTP Client,requests 2.31.0,Airtable API communication
+Production Server,Gunicorn 21.2.0,WSGI server for production deployment
+File Handling,Werkzeug 2.3.7,Secure file uploads and validation
+Environment Config,python-dotenv 1.0.0,Load environment variables from .env
+Frontend,HTML5/CSS3/JavaScript,Drag-drop interface and user feedback
+Hosting Platform,Railway.com,Cloud hosting with automatic scaling
+Data Storage,Airtable,Store and manage extracted invoice data
+File Limits,16MB max file size,Prevent server overload and abuse

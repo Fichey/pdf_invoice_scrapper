@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice PDF Parser</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            opacity: 0.8;
+            font-size: 1.1em;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .drop-zone {
+            border: 3px dashed #ddd;
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .drop-zone:hover,
+        .drop-zone.drag-over {
+            border-color: #667eea;
+            background: #f0f4ff;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.15);
+        }
+
+        .drop-zone.processing {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .drop-zone-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            color: #667eea;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .drop-zone h3 {
+            font-size: 1.4em;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .drop-zone p {
+            color: #666;
+            font-size: 1.1em;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .browse-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .browse-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 3px;
+        }
+
+        .result {
+            margin-top: 30px;
+            padding: 25px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .result h4 {
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .result-details {
+            background: rgba(255, 255, 255, 0.6);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .result-details strong {
+            display: inline-block;
+            margin-bottom: 5px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .file-info {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 8px;
+        }
+
+        .file-info h4 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .reset-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .reset-btn:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 Invoice PDF Parser</h1>
+            <p>Upload FedEx invoices to automatically extract data and send to Airtable</p>
+        </div>
+
+        <div class="content">
+            <div class="drop-zone" id="dropZone">
+                <div class="drop-zone-content">
+                    <div class="spinner" id="spinner"></div>
+                    <span class="upload-icon">📎</span>
+                    <h3>Drop your PDF here</h3>
+                    <p>or click to browse files</p>
+                    <button type="button" class="browse-btn" onclick="document.getElementById('fileInput').click()">
+                        Choose File
+                    </button>
+                </div>
+
+                <input type="file" id="fileInput" class="file-input" accept=".pdf" />
+
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+
+            <div class="file-info" id="fileInfo">
+                <h4>Selected File:</h4>
+                <p id="fileName"></p>
+                <button class="reset-btn" onclick="resetUpload()">Choose Different File</button>
+            </div>
+
+            <div class="result" id="result">
+                <h4 id="resultTitle"></h4>
+                <p id="resultMessage"></p>
+                <div class="result-details" id="resultDetails"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const spinner = document.getElementById('spinner');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const result = document.getElementById('result');
+        const resultTitle = document.getElementById('resultTitle');
+        const resultMessage = document.getElementById('resultMessage');
+        const resultDetails = document.getElementById('resultDetails');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+
+        // Drag and drop handlers
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        dropZone.addEventListener('click', () => {
+            if (!dropZone.classList.contains('processing')) {
+                fileInput.click();
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            // Validate file type
+            if (!file.name.toLowerCase().endsWith('.pdf')) {
+                showResult('error', 'Invalid File Type', 'Please select a PDF file.');
+                return;
+            }
+
+            // Validate file size (16MB limit)
+            if (file.size > 16 * 1024 * 1024) {
+                showResult('error', 'File Too Large', 'Please select a file smaller than 16MB.');
+                return;
+            }
+
+            // Show selected file info
+            fileName.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
+            fileInfo.style.display = 'block';
+
+            uploadFile(file);
+        }
+
+        function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Show loading state
+            dropZone.classList.add('processing');
+            spinner.style.display = 'block';
+            progressBar.style.display = 'block';
+            result.style.display = 'none';
+
+            // Simulate progress (since we don't have real upload progress)
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 30;
+                if (progress > 90) progress = 90;
+                progressFill.style.width = progress + '%';
+            }, 200);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                clearInterval(progressInterval);
+                progressFill.style.width = '100%';
+
+                setTimeout(() => {
+                    dropZone.classList.remove('processing');
+                    spinner.style.display = 'none';
+                    progressBar.style.display = 'none';
+
+                    if (data.error) {
+                        showResult('error', 'Processing Error', data.error);
+                    } else {
+                        showResult('success', 'Success!', data.message, data);
+                    }
+                }, 500);
+            })
+            .catch(error => {
+                clearInterval(progressInterval);
+                dropZone.classList.remove('processing');
+                spinner.style.display = 'none';
+                progressBar.style.display = 'none';
+                progressFill.style.width = '0%';
+
+                showResult('error', 'Upload Error', 'Failed to upload file. Please try again.');
+                console.error('Error:', error);
+            });
+        }
+
+        function showResult(type, title, message, data = null) {
+            result.className = 'result ' + type;
+            result.style.display = 'block';
+            resultTitle.textContent = title;
+            resultMessage.textContent = message;
+
+            if (data && type === 'success') {
+                let details = '<strong>File:</strong> ' + data.filename + '<br>';
+                if (data.invoice_number) {
+                    details += '<strong>Invoice Number:</strong> ' + data.invoice_number + '<br>';
+                }
+                if (data.invoice_date) {
+                    details += '<strong>Invoice Date:</strong> ' + data.invoice_date + '<br>';
+                }
+                details += '<strong>Records Processed:</strong> ' + data.records_processed + '<br>';
+
+                if (data.airtable_result) {
+                    details += '<strong>Airtable Results:</strong><br>';
+                    details += '- Successfully sent: ' + data.airtable_result.successful + ' records<br>';
+                    if (data.airtable_result.failed > 0) {
+                        details += '- Failed: ' + data.airtable_result.failed + ' records<br>';
+                    }
+                }
+
+                resultDetails.innerHTML = details;
+                resultDetails.style.display = 'block';
+            } else {
+                resultDetails.style.display = 'none';
+            }
+        }
+
+        function resetUpload() {
+            fileInput.value = '';
+            fileInfo.style.display = 'none';
+            result.style.display = 'none';
+            progressBar.style.display = 'none';
+            progressFill.style.width = '0%';
+            dropZone.classList.remove('processing');
+            spinner.style.display = 'none';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>

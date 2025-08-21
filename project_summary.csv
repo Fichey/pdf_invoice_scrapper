@@ -1,0 +1,11 @@
+filename,type,description,key_features,lines_of_code
+app.py,Python,"Main Flask application with file upload, PDF processing, and Airtable integration","Drag-drop uploads, error handling, health checks, temporary file management",~300
+parser.py,Python,Refactored invoice parsing logic from original main.py,"Table extraction, complex data parsing, FedEx invoice handling",~250
+templates/index.html,HTML/CSS/JS,Modern drag-and-drop user interface,"Responsive design, progress bars, file validation, real-time feedback",~400
+requirements.txt,Config,Python package dependencies,"Flask, pdfplumber, requests, gunicorn for production",7
+Procfile,Config,Railway process configuration,Gunicorn WSGI server configuration,1
+railway.json,Config,Railway deployment configuration,"Health checks, restart policies, Nixpacks builder",8
+.env.example,Config,Environment variables template,"Airtable API settings, Flask configuration",10
+README.md,Documentation,Comprehensive setup and deployment guide,"Step-by-step instructions, troubleshooting, cost analysis",~400
+.gitignore,Config,Git ignore patterns for Python projects,"Python, virtual environments, IDE files, logs",~50
+deploy.sh,Script,Deployment helper script,"Git setup, deployment checklist, environment validation",~40
