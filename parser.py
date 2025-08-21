@@ -66,7 +66,7 @@ class InvoiceParser:
 
     def is_kg_between_newlines(self, text: str) -> bool:
         """Check if 'kg' appears between newlines"""
-        return bool(re.search(r"\nkg\n", text, re.IGNORECASE))
+        return bool(re.search(r"\nkg", text, re.IGNORECASE))
 
     def is_there_reference_number(self, text: str) -> bool:
         """Check if there's a reference number in text"""
@@ -74,7 +74,7 @@ class InvoiceParser:
 
     def is_reference_number_between_newlines(self, text: str) -> bool:
         """Check if reference number appears between newlines"""
-        return bool(re.search(r"\n\(\d+\)\n", text))
+        return bool(re.search(r"\(\d+\)\n", text))
 
     def is_there_underscore_in_reference_number(self, text: str) -> bool:
         """Check if reference number contains underscore"""
@@ -147,39 +147,70 @@ class InvoiceParser:
             dane_split = dane.split(' ')
 
             # Complex parsing logic (preserved from original)
-            if not kg_2_lines:  # weight in one line
-                if not contains_reference_number:  # no reference number
-                    sztuki = int(dane_split[0])
-                    waga = float(dane_split[1])
-                    podlega_vat = float(dane_split[3])
-                    bez_vat = float(dane_split[4])
-                    lacznie = float(dane_split[5])
-                else:  # has reference number
-                    podlega_vat = float(dane_split[4])
-                    bez_vat = float(dane_split[5])
-                    lacznie = float(dane_split[6])
+            try:
+                if not kg_2_lines: # waga w jednej linii
 
-                    if contains_underscore:  # underscore in reference number
-                        sztuki = int(dane_split[1])
-                        waga = float(dane_split[2])
-                        numer_referencyjny = dane_split[0] + dane_split[7]
-                    else:
-                        if not reference_number_in_2_lines:  # reference number in one line
-                            sztuki = int(dane_split[0])
-                            waga = float(dane_split[1])
-                            numer_referencyjny = dane_split[3].replace("(", "").replace(")", "")
-                        else:  # reference number in two lines
+                    if not contains_reference_number: # nie ma numeru referencyjnego
+                        sztuki = int(dane_split[0])
+                        waga = float(dane_split[1])
+                        podlega_vat = float(dane_split[3])
+                        bez_vat = float(dane_split[4])
+                        lacznie = float(dane_split[5])
+
+                    else: # jest numer referencyjny
+                        podlega_vat = float(dane_split[4])
+                        bez_vat = float(dane_split[5])
+                        lacznie = float(dane_split[6])
+
+                        if contains_underscore: # jest podkreślnik w numerze referencyjnym
                             sztuki = int(dane_split[1])
                             waga = float(dane_split[2])
-                            numer_referencyjny = dane_split[7].replace("(", "").replace(")", "")
-            else:  # weight in two lines
-                if not contains_reference_number:  # no reference number
-                    sztuki = int(dane_split[1])
-                    waga = float(dane_split[0])
-                    podlega_vat = float(dane_split[2])
-                    bez_vat = float(dane_split[3])
-                    lacznie = float(dane_split[4])
+                            numer_referencyjny = dane_split[0] + dane_split[7]
 
+                        else:
+                            if not reference_number_in_2_lines: # numer referencyjny w jednej linii
+                                sztuki = int(dane_split[0])
+                                waga = float(dane_split[1])
+                                numer_referencyjny = dane_split[3].replace("(", "").replace(")", "")
+                            
+                            else: # numer referencyjny w dwóch liniach
+                                sztuki = int(dane_split[1])
+                                waga = float(dane_split[2])
+                                numer_referencyjny = dane_split[7].replace("(", "").replace(")", "")
+
+                else: # waga w dwóch liniach
+
+                    if not contains_reference_number: # nie ma numeru referencyjnego
+                        sztuki = int(dane_split[1])
+                        waga = float(dane_split[0])
+                        podlega_vat = float(dane_split[2])
+                        bez_vat = float(dane_split[3])
+                        lacznie = float(dane_split[4])
+                    else:
+                        podlega_vat = float(dane_split[3])
+                        bez_vat = float(dane_split[4])
+                        lacznie = float(dane_split[5])
+
+                        if contains_underscore: # jest podkreślnik w numerze referencyjnym
+                            sztuki = int(dane_split[2])
+                            waga = float(dane_split[0])
+                            numer_referencyjny = dane_split[1] + dane_split[7]
+
+                        else:
+                            print(repr(rows[0][3]) , dane)
+                            raise NotImplementedError("Nie obsługiwane jeszcze przypadki z wagą i numerem referencyjnym w dwóch liniach")
+            except NotImplementedError as nie:
+                AWB = ''  # extract AWB if possible from context
+                dane = ''  # extract dane if possible
+                # Log or re-raise with detailed message
+                raise NotImplementedError(f"{nie}  AWB: {AWB} Dane: {dane}")
+            except ValueError as ve:
+                AWB = ''  # similarly extract AWB for context
+                dane = ''
+                raise ValueError(f"Błąd parsowania danych FedEx: {ve}. AWB: {AWB} Dane: {dane}")
+            except Exception as e:
+                # Optional: catch other unexpected exceptions
+                raise RuntimeError(f"Unexpected error: {e}")
             # Extract sender and recipient information
             informacje_nadawca = rows[1][0].replace('\n', ' ').replace('Nadawca ','').strip()
             informacje_odbiorca = rows[1][2].replace('\n', ' ').replace('Odbiorca ','').strip()

@@ -272,52 +272,44 @@ def index():
 @app.route('/upload', methods=['POST'])
 def upload_file():
     try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file provided'}), 400
+        # Save uploaded file to temp
+        file = request.files.get('file')
+        if not file or file.filename == '':
+            return jsonify({'error': 'No file uploaded'}), 400
 
-        file = request.files['file']
+        # Save temp
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+            file.save(tmp.name)
+            temp_path = tmp.name
 
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-
-        if not allowed_file(file.filename):
-            return jsonify({'error': 'Only PDF files are allowed'}), 400
-
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-            file.save(tmp_file.name)
-            temp_path = tmp_file.name
-
+        parser = InvoiceParser()
         try:
-            # Process the PDF
-            tables, invoice_number, invoice_date = extract_tables_from_pdf(temp_path)
-
-            if not tables:
-                return jsonify({'error': 'No tables found in PDF'}), 400
-
-            # Convert to Airtable format
-            records = handle_tables(tables, invoice_number, invoice_date)
-
-            if not records:
-                return jsonify({'error': 'No valid data found to process'}), 400
-
-            # Send to Airtable
-            result = send_to_airtable(records)
-
-            return jsonify({
-                'message': 'File processed successfully',
-                'filename': secure_filename(file.filename),
-                'invoice_number': invoice_number,
-                'invoice_date': invoice_date,
-                'records_processed': len(records),
-                'airtable_result': result
-            })
-
+            records, metadata = parser.parse_pdf(temp_path)
         finally:
-            # Clean up temporary file
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
 
+        if 'error' in metadata:
+            return jsonify({'error': metadata['error']}), 400
+
+        if not records:
+            return jsonify({'error': 'No valid FedEx data found in PDF'}), 400
+
+        # Send to Airtable (assuming you have send_to_airtable function)
+        airtable_result = send_to_airtable(records)
+
+        return jsonify({
+            'message': 'File processed successfully',
+            'invoice_number': metadata.get('invoice_number'),
+            'invoice_date': metadata.get('invoice_date'),
+            'records_processed': len(records),
+            'airtable_result': airtable_result
+        })
+
+    except NotImplementedError as nie:
+        return jsonify({'error': f'Nie obsługiwane przypadki: {str(nie)}'}), 400
+    except ValueError as ve:
+        return jsonify({'error': f'Błąd parsowania: {str(ve)}'}), 400
     except Exception as e:
         return jsonify({'error': f'Processing error: {str(e)}'}), 500
 

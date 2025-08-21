@@ -65,13 +65,13 @@ def handle_tables(tables, numer_faktury: str | None = None, data_faktury: str | 
 
 
 def is_kg_between_newlines(text: str) -> bool:
-    return bool(re.search(r"\nkg\n", text, re.IGNORECASE))
+    return bool(re.search(r"\nkg", text, re.IGNORECASE))
 
 def is_there_reference_number(text: str) -> bool:
     return bool(re.search(r"[()_]", text))
 
 def is_reference_number_between_newlines(text: str) -> bool:
-    return bool(re.search(r"\n\(\d+\)\n", text))
+    return bool(re.search(r"\(\d+\)\n", text))
 
 def is_there_underscore_in_reference_number(text: str) -> bool:
     return bool(re.search(r"[_]", text))
@@ -124,45 +124,60 @@ def handle_fedex_table(table):
     # tutaj przypisywanie tych danych da się zrobić bardziej elegancko, ale na razie zostawiam tak
     dane_split = dane.split(' ')
 
-    if not kg_2_lines: # waga w jednej linii
+    try:
+        if not kg_2_lines: # waga w jednej linii
 
-        if not contains_reference_number: # nie ma numeru referencyjnego
-            sztuki = int(dane_split[0])
-            waga = float(dane_split[1])
-            podlega_vat = float(dane_split[3])
-            bez_vat = float(dane_split[4])
-            lacznie = float(dane_split[5])
+            if not contains_reference_number: # nie ma numeru referencyjnego
+                sztuki = int(dane_split[0])
+                waga = float(dane_split[1])
+                podlega_vat = float(dane_split[3])
+                bez_vat = float(dane_split[4])
+                lacznie = float(dane_split[5])
 
-        else: # jest numer referencyjny
-            podlega_vat = float(dane_split[4])
-            bez_vat = float(dane_split[5])
-            lacznie = float(dane_split[6])
+            else: # jest numer referencyjny
+                podlega_vat = float(dane_split[4])
+                bez_vat = float(dane_split[5])
+                lacznie = float(dane_split[6])
 
-            if contains_underscore: # jest podkreślnik w numerze referencyjnym
-                sztuki = int(dane_split[1])
-                waga = float(dane_split[2])
-                numer_referencyjny = dane_split[0] + dane_split[7]
-
-            else:
-                if not reference_number_in_2_lines: # numer referencyjny w jednej linii
-                    sztuki = int(dane_split[0])
-                    waga = float(dane_split[1])
-                    numer_referencyjny = dane_split[3].replace("(", "").replace(")", "")
-                
-                else: # numer referencyjny w dwóch liniach
+                if contains_underscore: # jest podkreślnik w numerze referencyjnym
                     sztuki = int(dane_split[1])
                     waga = float(dane_split[2])
-                    numer_referencyjny = dane_split[7].replace("(", "").replace(")", "")
+                    numer_referencyjny = dane_split[0] + dane_split[7]
 
-    else: # waga w dwóch liniach
+                else:
+                    if not reference_number_in_2_lines: # numer referencyjny w jednej linii
+                        sztuki = int(dane_split[0])
+                        waga = float(dane_split[1])
+                        numer_referencyjny = dane_split[3].replace("(", "").replace(")", "")
+                    
+                    else: # numer referencyjny w dwóch liniach
+                        sztuki = int(dane_split[1])
+                        waga = float(dane_split[2])
+                        numer_referencyjny = dane_split[7].replace("(", "").replace(")", "")
 
-        if not contains_reference_number: # nie ma numeru referencyjnego
-            sztuki = int(dane_split[1])
-            waga = float(dane_split[0])
-            podlega_vat = float(dane_split[2])
-            bez_vat = float(dane_split[3])
-            lacznie = float(dane_split[4])
+        else: # waga w dwóch liniach
 
+            if not contains_reference_number: # nie ma numeru referencyjnego
+                sztuki = int(dane_split[1])
+                waga = float(dane_split[0])
+                podlega_vat = float(dane_split[2])
+                bez_vat = float(dane_split[3])
+                lacznie = float(dane_split[4])
+            else:
+                podlega_vat = float(dane_split[3])
+                bez_vat = float(dane_split[4])
+                lacznie = float(dane_split[5])
+
+                if contains_underscore: # jest podkreślnik w numerze referencyjnym
+                    sztuki = int(dane_split[2])
+                    waga = float(dane_split[0])
+                    numer_referencyjny = dane_split[1] + dane_split[7]
+
+                else:
+                    print(repr(rows[0][3]) , dane)
+                    raise NotImplementedError("Nie obsługiwane jeszcze przypadki z wagą i numerem referencyjnym w dwóch liniach")
+    except ValueError as e:
+        raise ValueError(f"Błąd parsowania danych FedEx: {e}. AWB: {AWB} Dane: {dane}")
 
         # else: # jest numer referencyjny
         #     podlega_vat = float(dane_split[4])
@@ -215,7 +230,7 @@ def handle_fedex_table(table):
 
 
 def main():
-    path = "data/invoice1.pdf"
+    path = "data/invoices/529488012.pdf"
     out_path = "data/records.json"
     tables, numer_faktury, data_faktury = extract_tables_single_strategy(path)
 
