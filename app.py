@@ -108,12 +108,17 @@ def upload_file():
 
         airtable_result = send_to_airtable(records, unique_field="AWB")
 
+        # After parsing the file
+        log_messages = metadata.get("log") if "log" in metadata else None
+
+        # Now include log in JSON, even on success:
         return jsonify({
             'message': 'File processed successfully',
             'invoice_number': metadata.get('invoice_number'),
             'invoice_date': metadata.get('invoice_date'),
             'records_processed': len(records),
-            'airtable_result': airtable_result
+            'airtable_result': airtable_result,
+            'log': log_messages  # <-- Add this!
         })
 
     except NotImplementedError as nie:

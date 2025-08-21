@@ -252,6 +252,9 @@
                 <button class="reset-btn" onclick="resetUpload()">Choose Different File</button>
             </div>
 
+            <div class="log-warning" id="logWarning" style="display:none; margin-bottom: 20px; background: #fff3cd; color: #856404; border-radius:6px; padding: 15px; border: 1px solid #ffeeba;">
+            </div>
+
             <div class="result" id="result">
                 <h4 id="resultTitle"></h4>
                 <p id="resultMessage"></p>
@@ -383,8 +386,18 @@
             resultTitle.textContent = title;
             resultMessage.textContent = message;
 
+            // Show logs or warnings above success notification if present
+            const logWarning = document.getElementById('logWarning');
+            if (data && data.log && data.log.length > 0) {
+                logWarning.style.display = 'block';
+                logWarning.innerHTML = "<strong>Log / Warnings:</strong><br>" + data.log.replace(/\n/g, "<br>");
+            } else {
+                logWarning.style.display = 'none';
+                logWarning.innerHTML = '';
+            }
+
             if (data && type === 'success') {
-                let details = '<strong>File:</strong> ' + data.filename + '<br>';
+                let details = '<strong>File:</strong> ' + (data.filename || 'N/A') + '<br>';
                 if (data.invoice_number) {
                     details += '<strong>Invoice Number:</strong> ' + data.invoice_number + '<br>';
                 }
@@ -395,9 +408,9 @@
 
                 if (data.airtable_result) {
                     details += '<strong>Airtable Results:</strong><br>';
-                    details += '- Successfully sent: ' + data.airtable_result.successful + ' records<br>';
-                    if (data.airtable_result.failed > 0) {
-                        details += '- Failed: ' + data.airtable_result.failed + ' records<br>';
+                    details += '- Successfully sent: ' + (data.airtable_result.created_count || 0) + ' records<br>';
+                    if (data.airtable_result.updated_count > 0) {
+                        details += '- Updated: ' + data.airtable_result.updated_count + ' records<br>';
                     }
                 }
 
@@ -407,6 +420,7 @@
                 resultDetails.style.display = 'none';
             }
         }
+
 
         function resetUpload() {
             fileInput.value = '';
