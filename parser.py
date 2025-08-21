@@ -99,11 +99,11 @@ class InvoiceParser:
         if headers != self.FEDEX_HEADER:
             return None
 
-        AWB = None
-        dane = None
+        AWB = rows[0][0].split('\n')[0].split(' ')[0]
+        dane = rows[0][3]
         try:
             # Extract AWB and shipping date
-            AWB = rows[0][0].split('\n')[0].split(' ')[0]
+
             data_wysylki = rows[0][0].split('\n')[0].split(' ')[1]
 
             # Check for dimensions
