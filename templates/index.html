@@ -239,27 +239,18 @@
                     </button>
                 </div>
 
-                <input type="file" id="fileInput" class="file-input" accept=".pdf" />
+                <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple />
 
                 <div class="progress-bar" id="progressBar">
                     <div class="progress-fill" id="progressFill"></div>
                 </div>
             </div>
 
-            <div class="file-info" id="fileInfo">
-                <h4>Selected File:</h4>
-                <p id="fileName"></p>
-                <button class="reset-btn" onclick="resetUpload()">Choose Different File</button>
-            </div>
+            
+            <div id="fileList" style="margin-bottom: 15px; font-family: monospace;"></div>
 
-            <div class="log-warning" id="logWarning" style="display:none; margin-bottom: 20px; background: #fff3cd; color: #856404; border-radius:6px; padding: 15px; border: 1px solid #ffeeba;">
-            </div>
-
-            <div class="result" id="result">
-                <h4 id="resultTitle"></h4>
-                <p id="resultMessage"></p>
-                <div class="result-details" id="resultDetails"></div>
-            </div>
+            <div class="log-warning" id="combinedLogs"></div>
+            <div class="result-details" id="combinedResults"></div>
         </div>
     </div>
 
@@ -275,6 +266,7 @@
         const resultDetails = document.getElementById('resultDetails');
         const fileInfo = document.getElementById('fileInfo');
         const fileName = document.getElementById('fileName');
+        const fileListContainer = document.getElementById('fileList');
 
         // Drag and drop handlers
         dropZone.addEventListener('dragover', (e) => {
@@ -291,10 +283,22 @@
             e.preventDefault();
             dropZone.classList.remove('drag-over');
             const files = e.dataTransfer.files;
+            
             if (files.length > 0) {
-                logWarning.style.display = 'none';
-                logWarning.innerHTML = '';
-                handleFile(files[0]);
+                // Show selected file names
+                let listHTML = 'Selected files:<br><ul>';
+                for (let i = 0; i < files.length; i++) {
+                    listHTML += `<li>${files[i].name}</li>`;
+                }
+                listHTML += '</ul>';
+                fileListContainer.innerHTML = listHTML;
+                // Call your existing multi-file handler
+                handleFiles(Array.from(files)); 
+
+                // Reset input so user can select same file again if needed
+                e.dataTransfer.value = '';
+            } else {
+                fileListContainer.innerHTML = '';
             }
         });
 
@@ -305,32 +309,132 @@
         });
 
         fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                logWarning.style.display = 'none';
-                logWarning.innerHTML = '';
-                handleFile(e.target.files[0]);
+            const files = e.target.files;
+            
+            if (files.length > 0) {
+                // Show selected file names
+                let listHTML = 'Selected files:<br><ul>';
+                for (let i = 0; i < files.length; i++) {
+                    listHTML += `<li>${files[i].name}</li>`;
+                }
+                listHTML += '</ul>';
+                fileListContainer.innerHTML = listHTML;
+                // Call your existing multi-file handler
+                handleFiles(Array.from(files)); 
+
+                // Reset input so user can select same file again if needed
+                e.target.value = '';
+            } else {
+                fileListContainer.innerHTML = '';
             }
         });
 
-        function handleFile(file) {
-            // Validate file type
-            if (!file.name.toLowerCase().endsWith('.pdf')) {
-                showResult('error', 'Invalid File Type', 'Please select a PDF file.');
-                return;
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+
+                handleFiles(Array.from(e.target.files));
+                e.target.value = '';  // allow re-selection of same files
             }
+        });
 
-            // Validate file size (16MB limit)
-            if (file.size > 16 * 1024 * 1024) {
-                showResult('error', 'File Too Large', 'Please select a file smaller than 16MB.');
-                return;
+
+        async function handleFiles(files) {
+            // Clear previous combined results and logs once at start
+            document.getElementById('combinedResults').innerHTML = '';
+            document.getElementById('combinedLogs').innerHTML = '';
+
+            for (const file of files) {
+                await uploadAndDisplayResult(file);
             }
-
-            // Show selected file info
-            fileName.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
-            fileInfo.style.display = 'block';
-
-            uploadFile(file);
+            dropZone.classList.remove('processing');
+            spinner.style.display = 'none';
+            progressBar.style.display = 'none';
         }
+
+        async function uploadAndDisplayResult(file) {
+            // Activate "processing" state at start
+            dropZone.classList.add('processing');
+            spinner.style.display = 'block';
+            progressBar.style.display = 'block';
+            progressFill.style.width = '0%';
+
+            // Simulate progress, optional
+            let progress = 0;
+            progressFill.style.width = '10%';
+            const progressInterval = setInterval(() => {
+                progress += 5 + Math.random() * 5;
+                if (progress > 90) progress = 90;
+                progressFill.style.width = progress + '%';
+            }, 400);
+
+            // Prepare and send
+            const formData = new FormData();
+            formData.append('file', file);
+
+            let resp, data;
+            try {
+                resp = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                data = await resp.json();
+            } catch (e) {
+                data = {error: "Network/server error"};
+            }
+
+            clearInterval(progressInterval);
+            progressFill.style.width = '100%';
+
+            // Delay for smoother UI
+            setTimeout(() => {
+                if (data.error) {
+                    appendToResults(file.name, 'error', data.error);
+                    if (data.log) appendToLogs(data.log);
+                } else {
+                    appendToResults(file.name, 'success', data.message, data);
+                    if (data.log) appendToLogs(data.log);
+                }
+            }, 500);
+        }
+
+        function appendToResults(filename, type, message, data = null) {
+            const container = document.getElementById('combinedResults');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.style.marginBottom = '20px';
+
+            let html = `<strong>File:</strong> ${filename}<br>`;
+            html += `<strong>Status:</strong> ${message}<br>`;
+
+            if (type === 'success' && data) {
+                if (data.invoice_number) html += `<strong>Invoice Number:</strong> ${data.invoice_number}<br>`;
+                if (data.invoice_date) html += `<strong>Invoice Date:</strong> ${data.invoice_date}<br>`;
+                html += `<strong>Records Processed:</strong> ${data.records_processed}<br>`;
+                if (data.airtable_result) {
+                    html += `<strong>Airtable Results:</strong><br>`;
+                    html += `- Created: ${data.airtable_result.created_count || 0}<br>`;
+                    html += `- Updated: ${data.airtable_result.updated_count || 0}<br>`;
+                }
+            }
+
+            div.innerHTML = html;
+            div.style.display = 'block';
+            container.appendChild(div);
+        }
+
+        function appendToLogs(logText) {
+            const container = document.getElementById('combinedLogs');
+            const div = document.createElement('div');
+            div.style.background = '#fff3cd';
+            div.style.color = '#856404';
+            div.style.borderRadius = '6px';
+            div.style.padding = '15px';
+            div.style.marginBottom = '10px';
+            div.style.border = '1px solid #ffeeba';
+            div.innerHTML = `<strong>Log / Warning:</strong><br>${logText.replace(/\n/g, '<br>')}`;
+            container.appendChild(div);
+        }
+
 
         function uploadFile(file) {
             const formData = new FormData();
@@ -394,14 +498,6 @@
             resultMessage.textContent = message;
 
             // Show logs or warnings above success notification if present
-            const logWarning = document.getElementById('logWarning');
-            if (data && data.log && data.log.length > 0) {
-                logWarning.style.display = 'block';
-                logWarning.innerHTML += "<strong>Warning:</strong><br>" + data.log.replace(/\n/g, "<br>") + "\n";
-            } else {
-                logWarning.style.display = 'none';
-                logWarning.innerHTML = '';
-            }
 
             if (data && type === 'success') {
                 let details = '<strong>File:</strong> ' + (data.filename || 'N/A') + '<br>';
