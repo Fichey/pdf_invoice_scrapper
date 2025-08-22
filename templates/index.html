@@ -138,6 +138,18 @@
             border-radius: 3px;
         }
 
+        #totalResult {
+            display: none;
+            margin-bottom: 24px;
+            background: #e3f6e3;
+            border-radius: 8px;
+            padding: 18px;
+            border: 1px solid #b2eab2;
+            color: #205c1d;
+            font-size: 1.15rem;
+            font-weight: 500;
+        }
+
         .result {
             margin-top: 30px;
             padding: 25px;
@@ -162,16 +174,32 @@
             font-size: 1.2em;
         }
 
-        .result-details {
-            background: rgba(255, 255, 255, 0.6);
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 15px;
+        /* Logs/Warning Box */
+        #combinedLogs{
+            display: none;
+            background: #fff3cd;
+            color: #856404;
+            border-radius: 6px;
+            padding: 14px;
+            margin-bottom: 12px;
+            border: 1px solid #ffeeba;
+            font-size: 1rem;
         }
 
-        .result-details strong {
-            display: inline-block;
-            margin-bottom: 5px;
+        /* File List */
+        #fileList {
+            display: none;
+            background: #f6f6f8;
+            color: #444;
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+            font-size: 0.98rem;
+            border: 1px solid #e4e4ec;
+        }
+        #fileList ul {
+            margin: 8px 0 0 0;
+            padding-left: 18px;
         }
 
         .spinner {
@@ -188,19 +216,6 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
-        }
-
-        .file-info {
-            display: none;
-            margin-top: 20px;
-            padding: 15px;
-            background: #e9ecef;
-            border-radius: 8px;
-        }
-
-        .file-info h4 {
-            margin-bottom: 10px;
-            color: #2c3e50;
         }
 
         .reset-btn {
@@ -247,8 +262,8 @@
             </div>
 
             
-            <div id="fileList" style="margin-bottom: 15px; font-family: monospace;"></div>
-
+            <div id="fileList"></div>
+            <div id="totalResult" style="display:none;"></div>
             <div class="log-warning" id="combinedLogs"></div>
             <div class="result-details" id="combinedResults"></div>
         </div>
@@ -264,9 +279,11 @@
         const resultTitle = document.getElementById('resultTitle');
         const resultMessage = document.getElementById('resultMessage');
         const resultDetails = document.getElementById('resultDetails');
-        const fileInfo = document.getElementById('fileInfo');
         const fileName = document.getElementById('fileName');
         const fileListContainer = document.getElementById('fileList');
+        const combinedLogs = document.getElementById('combinedLogs');
+        const combinedResults = document.getElementById('combinedResults');
+        const totalResult = document.getElementById('totalResult');
 
         // Drag and drop handlers
         dropZone.addEventListener('dragover', (e) => {
@@ -292,12 +309,14 @@
                 }
                 listHTML += '</ul>';
                 fileListContainer.innerHTML = listHTML;
+                fileListContainer.style.display = 'block';
                 // Call your existing multi-file handler
                 handleFiles(Array.from(files)); 
 
                 // Reset input so user can select same file again if needed
                 e.dataTransfer.value = '';
             } else {
+                fileListContainer.style.display = 'none';
                 fileListContainer.innerHTML = '';
             }
         });
@@ -319,12 +338,14 @@
                 }
                 listHTML += '</ul>';
                 fileListContainer.innerHTML = listHTML;
+                fileListContainer.style.display = 'block';
                 // Call your existing multi-file handler
                 handleFiles(Array.from(files)); 
 
                 // Reset input so user can select same file again if needed
                 e.target.value = '';
             } else {
+                fileListContainer.style.display = 'none';
                 fileListContainer.innerHTML = '';
             }
         });
@@ -339,16 +360,38 @@
 
 
         async function handleFiles(files) {
-            // Clear previous combined results and logs once at start
-            document.getElementById('combinedResults').innerHTML = '';
-            document.getElementById('combinedLogs').innerHTML = '';
+            combinedResults.style.display = 'none';
+            combinedResults.innerHTML = '';
+            combinedLogs.style.display = 'none';
+            combinedLogs.innerHTML = '';
+            totalResult.style.display = 'none';
+            totalResult.innerHTML = '';
+
+            // For total summary
+            let totalRecords = 0, totalCreated = 0, totalUpdated = 0;
+            let allFileResults = [];
 
             for (const file of files) {
-                await uploadAndDisplayResult(file);
+                let result = await uploadAndDisplayResult(file); // modify this to return the result object!
+                if (result && result.records_processed) totalRecords += result.records_processed;
+                if (result && result.airtable_result) {
+                    totalCreated += result.airtable_result.created_count || 0;
+                    totalUpdated += result.airtable_result.updated_count || 0;
+                }
+                allFileResults.push(result);
             }
+
             dropZone.classList.remove('processing');
             spinner.style.display = 'none';
             progressBar.style.display = 'none';
+
+            // Show total summary box
+            totalResult.innerHTML =
+                `<strong>Total Result:</strong><br>` +
+                `<strong>Records Processed:</strong> ${totalRecords}<br>` +
+                `<strong>Airtable Added:</strong> ${totalCreated}<br>` +
+                `<strong>Airtable Updated:</strong> ${totalUpdated}<br>`;
+            totalResult.style.display = 'block';
         }
 
         async function uploadAndDisplayResult(file) {
@@ -362,10 +405,10 @@
             let progress = 0;
             progressFill.style.width = '10%';
             const progressInterval = setInterval(() => {
-                progress += 5 + Math.random() * 5;
+                progress += 1 + Math.random() * 1;
                 if (progress > 90) progress = 90;
                 progressFill.style.width = progress + '%';
-            }, 400);
+            }, 150);
 
             // Prepare and send
             const formData = new FormData();
@@ -389,16 +432,22 @@
             setTimeout(() => {
                 if (data.error) {
                     appendToResults(file.name, 'error', data.error);
-                    if (data.log) appendToLogs(data.log);
+                    if (data.log) {
+                        appendToLogs(data.log);
+                        combinedLogs.style.display = 'block';
+                    }
                 } else {
                     appendToResults(file.name, 'success', data.message, data);
-                    if (data.log) appendToLogs(data.log);
+                    if (data.log) {
+                        appendToLogs(data.log);
+                        combinedLogs.style.display = 'block';
+                    }
                 }
             }, 500);
+            return data;
         }
 
         function appendToResults(filename, type, message, data = null) {
-            const container = document.getElementById('combinedResults');
             const div = document.createElement('div');
             div.className = `result ${type}`;
             div.style.marginBottom = '20px';
@@ -419,11 +468,11 @@
 
             div.innerHTML = html;
             div.style.display = 'block';
-            container.appendChild(div);
+            combinedResults.appendChild(div);
+            combinedResults.style.display = 'block';
         }
 
         function appendToLogs(logText) {
-            const container = document.getElementById('combinedLogs');
             const div = document.createElement('div');
             div.style.background = '#fff3cd';
             div.style.color = '#856404';
@@ -432,118 +481,9 @@
             div.style.marginBottom = '10px';
             div.style.border = '1px solid #ffeeba';
             div.innerHTML = `<strong>Log / Warning:</strong><br>${logText.replace(/\n/g, '<br>')}`;
-            container.appendChild(div);
+            combinedLogs.appendChild(div);
         }
 
-
-        function uploadFile(file) {
-            const formData = new FormData();
-            formData.append('file', file);
-
-            // Show loading state
-            dropZone.classList.add('processing');
-            spinner.style.display = 'block';
-            progressBar.style.display = 'block';
-            result.style.display = 'none';
-
-            // Simulate progress (since we don't have real upload progress)
-            let progress = 0;
-            const progressInterval = setInterval(() => {
-                progress += Math.random() * 30;
-                if (progress > 90) progress = 90;
-                progressFill.style.width = progress + '%';
-            }, 200);
-
-            fetch('/upload', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                clearInterval(progressInterval);
-                progressFill.style.width = '100%';
-
-                setTimeout(() => {
-                    dropZone.classList.remove('processing');
-                    spinner.style.display = 'none';
-                    progressBar.style.display = 'none';
-
-                    // Always call showResult with full data
-                    // If there's an error key, pass type 'error', else 'success'
-                    if (data.error) {
-                        // Show error message but also pass full data for logs if present
-                        showResult('error', 'Processing Error', data.error, data);
-                    } else {
-                        // Show success message
-                        showResult('success', 'Success!', data.message, data);
-                    }
-                }, 500);
-            })
-            .catch(error => {
-                clearInterval(progressInterval);
-                dropZone.classList.remove('processing');
-                spinner.style.display = 'none';
-                progressBar.style.display = 'none';
-                progressFill.style.width = '0%';
-
-                showResult('error', 'Upload Error', 'Failed to upload file. Please try again.');
-                console.error('Error:', error);
-            });
-        }
-
-        function showResult(type, title, message, data = null) {
-            result.className = 'result ' + type;
-            result.style.display = 'block';
-            resultTitle.textContent = title;
-            resultMessage.textContent = message;
-
-            // Show logs or warnings above success notification if present
-
-            if (data && type === 'success') {
-                let details = '<strong>File:</strong> ' + (data.filename || 'N/A') + '<br>';
-                if (data.invoice_number) {
-                    details += '<strong>Invoice Number:</strong> ' + data.invoice_number + '<br>';
-                }
-                if (data.invoice_date) {
-                    details += '<strong>Invoice Date:</strong> ' + data.invoice_date + '<br>';
-                }
-                details += '<strong>Records Processed:</strong> ' + data.records_processed + '<br>';
-
-                if (data.airtable_result) {
-                    details += '<strong>Airtable Results:</strong><br>';
-                    details += '- Successfully sent: ' + (data.airtable_result.created_count || 0) + ' records<br>';
-                    if (data.airtable_result.updated_count > 0) {
-                        details += '- Updated: ' + data.airtable_result.updated_count + ' records<br>';
-                    }
-                }
-
-                resultDetails.innerHTML = details;
-                resultDetails.style.display = 'block';
-            } else {
-                resultDetails.style.display = 'none';
-                resultDetails.innerHTML = '';
-                
-            }
-        }
-
-
-        function resetUpload() {
-            fileInput.value = '';
-            fileInfo.style.display = 'none';
-            result.style.display = 'none';
-            progressBar.style.display = 'none';
-            progressFill.style.width = '0%';
-            dropZone.classList.remove('processing');
-            spinner.style.display = 'none';
-        }
-
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
     </script>
 </body>
 </html>

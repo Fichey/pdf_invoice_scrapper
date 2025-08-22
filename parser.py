@@ -80,7 +80,7 @@ class InvoiceParser:
         """Check if reference number contains underscore"""
         return bool(re.search(r"[_]", text))
 
-    def handle_fedex_table(self, table: List[List[str]]) -> Optional[Dict]:
+    def handle_fedex_table(self, table: List[List[str]], numer_faktury) -> Optional[Dict]:
         """
         Process FedEx table data
 
@@ -202,11 +202,11 @@ class InvoiceParser:
                             print(repr(rows[0][3]) , dane)
                             raise NotImplementedError("Nie obsługiwane jeszcze przypadki z wagą i numerem referencyjnym w dwóch liniach")
             except NotImplementedError as nie:
-                raise NotImplementedError(f"{nie} AWB: {AWB} Dane: {dane}") from None
+                raise NotImplementedError(f"Nr faktury: {numer_faktury}. {nie} AWB: {AWB} Dane: {dane}") from None
             except ValueError as ve:
-                raise ValueError(f"Błąd parsowania danych FedEx: {ve}. AWB: {AWB} Dane: {dane}") from None
+                raise ValueError(f"Nr faktury: {numer_faktury}. Błąd parsowania danych FedEx: {ve}. AWB: {AWB} Dane: {dane}") from None
             except Exception as e:
-                raise RuntimeError(f"Unexpected error: {e}. AWB: {AWB} Dane: {dane}") from None
+                raise RuntimeError(f"Nr faktury: {numer_faktury}. Unexpected error: {e}. AWB: {AWB} Dane: {dane}") from None
             # Extract sender and recipient information
             informacje_nadawca = rows[1][0].replace('\n', ' ').replace('Nadawca ','').strip()
             informacje_odbiorca = rows[1][2].replace('\n', ' ').replace('Odbiorca ','').strip()
@@ -259,7 +259,7 @@ class InvoiceParser:
                         "numer_faktury": numer_faktury,
                         "data_faktury": data_faktury
                     }
-                    result = self.handle_fedex_table(table)
+                    result = self.handle_fedex_table(table, numer_faktury)
                     if result is None:
                         continue
                     if "error" in result:
