@@ -4,7 +4,6 @@ import json
 import os
 from typing import List, Dict, Optional, Tuple
 
-
 class InvoiceParser:
     """
     Updated invoice parser that integrates with web application
@@ -14,7 +13,7 @@ class InvoiceParser:
     def __init__(self):
         self.TABLE_SETTINGS = {
             "vertical_strategy": "lines",
-            "horizontal_strategy": "lines",
+            "horizontal_strategy": "lines", 
             "intersection_tolerance": 5,
             "snap_tolerance": 3,
             "join_tolerance": 3,
@@ -24,55 +23,46 @@ class InvoiceParser:
         }
 
         self.FEDEX_HEADER = [
-            'AWB', 'Data wysylki', 'Usługa', 'Sztuki', 'Waga',
+            'AWB', 'Data wysylki', 'Usługa', 'Sztuki', 'Waga', 
             'Numer ref.', 'Podlega VAT', 'Bez VAT', 'Łącznie'
         ]
 
-    def detect_file_type(self, pdf: pdfplumber.PDF) -> Optional[str]:
-        text = pdf.pages[0].extract_text() if pdf.pages else ""
-        if not text:
-            return None
-        if "FedEx" in text:
-            return "FedEx"
-        # Extend with other types (e.g., 'UPS') detection logic here
-        return "Unknown"
-
-    def extract_invoice_number(self, pdf: pdfplumber.PDF, file_type: str) -> Optional[str]:
-        if file_type == "FedEx":
-            return self.extract_invoice_number_fedex(pdf)
-        # Add other file_type conditions here
-        return None
-
-    def extract_invoice_number_fedex(self, pdf: pdfplumber.PDF) -> Optional[str]:
+    def extract_invoice_number(self, pdf: pdfplumber.PDF) -> Optional[str]:
+        """Extract invoice number from PDF"""
         text = pdf.pages[0].extract_text()
         match = re.search(r"Numer\s+faktury\s+VAT:\s*([0-9]+)", text)
         return match.group(1) if match else None
 
-    def extract_invoice_date(self, pdf: pdfplumber.PDF, file_type: str) -> Optional[str]:
-        if file_type == "FedEx":
-            return self.extract_invoice_date_fedex(pdf)
-        # Add other file_type conditions here
-        return None
-
-    def extract_invoice_date_fedex(self, pdf: pdfplumber.PDF) -> Optional[str]:
+    def extract_invoice_date(self, pdf: pdfplumber.PDF) -> Optional[str]:
+        """Extract invoice date from PDF"""
         text = pdf.pages[0].extract_text()
         match = re.search(r"Data\s+faktury:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
         return match.group(1) if match else None
 
-    def extract_tables(self, pdf: pdfplumber.PDF, file_type: str) -> List[List[List[str]]]:
-        if file_type == "FedEx":
-            return self.extract_tables_fedex(pdf)
-        # Add other file_type conditions here
-        return []
+    def extract_tables_single_strategy(self, path: str) -> Tuple[List, Optional[str], Optional[str]]:
+        """
+        Extract tables from PDF file
 
-    def extract_tables_fedex(self, pdf: pdfplumber.PDF) -> List[List[List[str]]]:
-        tables = []
-        for page in pdf.pages:
-            page_tables = page.extract_tables(self.TABLE_SETTINGS)
-            tables.extend(page_tables)
-        return tables
+        Args:
+            path: Path to PDF file
 
-    # Preserve your existing helper functions unchanged
+        Returns:
+            Tuple of (tables, invoice_number, invoice_date)
+        """
+        try:
+            with pdfplumber.open(path) as pdf:
+                tables = []
+                for page in pdf.pages:
+                    page_tables = page.extract_tables(self.TABLE_SETTINGS)
+                    tables.extend(page_tables)
+
+                invoice_number = self.extract_invoice_number(pdf)
+                invoice_date = self.extract_invoice_date(pdf)
+
+                return tables, invoice_number, invoice_date
+        except Exception as e:
+            print(f"Error extracting tables: {e}")
+            return [], None, None
 
     def is_kg_between_newlines(self, text: str) -> bool:
         """Check if 'kg' appears between newlines"""
@@ -90,25 +80,27 @@ class InvoiceParser:
         """Check if reference number contains underscore"""
         return bool(re.search(r"[_]", text))
 
-    # Preserve your full handle_fedex_table exactly as it is (not shown here for brevity)
     def handle_fedex_table(self, table: List[List[str]], numer_faktury) -> Optional[Dict]:
-        # ... your existing full implementation unchanged ...
+        """
+        Process FedEx table data
 
+        Args:
+            table: 2D list representing table data
+
+        Returns:
+            Dictionary with processed data or None if processing fails
+        """
         if not table or len(table) < 2:
             return None
 
         headers = table[0]
         rows = table[1:]
 
-        if not "AWB" in headers and not "Data wysylki" in headers:
-            return None
-
         if headers != self.FEDEX_HEADER:
-            return {"error": f"Error processing FedEx table: Nr faktury: {numer_faktury}. Niestandardowa struktura tabeli: {repr(headers)}"}
+            return None
 
         AWB = rows[0][0].split('\n')[0].split(' ')[0]
         dane = rows[0][3]
-
         try:
             # Extract AWB and shipping date
 
@@ -172,7 +164,7 @@ class InvoiceParser:
                         bez_vat = float(dane_split[5])
                         lacznie = float(dane_split[6])
 
-                        if contains_underscore: # jest podkreĹlnik w numerze referencyjnym
+                        if contains_underscore: # jest podkreślnik w numerze referencyjnym
                             sztuki = int(dane_split[1])
                             waga = float(dane_split[2])
                             numer_referencyjny = dane_split[0] + dane_split[7]
@@ -183,12 +175,12 @@ class InvoiceParser:
                                 waga = float(dane_split[1])
                                 numer_referencyjny = dane_split[3].replace("(", "").replace(")", "")
                             
-                            else: # numer referencyjny w dwĂłch liniach
+                            else: # numer referencyjny w dwóch liniach
                                 sztuki = int(dane_split[1])
                                 waga = float(dane_split[2])
                                 numer_referencyjny = dane_split[7].replace("(", "").replace(")", "")
 
-                else: # waga w dwĂłch liniach
+                else: # waga w dwóch liniach
 
                     if not contains_reference_number: # nie ma numeru referencyjnego
                         sztuki = int(dane_split[1])
@@ -201,7 +193,7 @@ class InvoiceParser:
                         bez_vat = float(dane_split[4])
                         lacznie = float(dane_split[5])
 
-                        if contains_underscore: # jest podkreĹlnik w numerze referencyjnym
+                        if contains_underscore: # jest podkreślnik w numerze referencyjnym
                             sztuki = int(dane_split[2])
                             waga = float(dane_split[0])
                             numer_referencyjny = dane_split[1] + dane_split[7]
@@ -210,10 +202,7 @@ class InvoiceParser:
                             print(repr(rows[0][3]) , dane)
                             raise NotImplementedError("Nie obsługiwane jeszcze przypadki z wagą i numerem referencyjnym w dwóch liniach")
             except NotImplementedError as nie:
-                if (dane and AWB):
-                    raise NotImplementedError(f"Nr faktury: {numer_faktury}. {nie} AWB: {AWB} Dane: {dane}") from None
-                else:
-                    raise NotImplementedError(f"Nr faktury: {numer_faktury}. {nie}") from None
+                raise NotImplementedError(f"Nr faktury: {numer_faktury}. {nie} AWB: {AWB} Dane: {dane}") from None
             except ValueError as ve:
                 raise ValueError(f"Nr faktury: {numer_faktury}. Błąd parsowania danych FedEx: {ve}. AWB: {AWB} Dane: {dane}") from None
             except Exception as e:
@@ -252,69 +241,60 @@ class InvoiceParser:
         except Exception as e:
             return {"error": f"Error processing FedEx table: {str(e)}"}
 
-    def handle_tables(self, tables, numer_faktury=None, data_faktury=None, file_type=None):
-        if file_type == "FedEx":
-            return self.handle_fedex_tables(tables, numer_faktury, data_faktury)
-        # Add other handlers for different file types here
-        return [], []
+    def handle_tables(self, tables, numer_faktury=None, data_faktury=None):
+        tables_by_type = {"FedEx": []}
+        for table in tables:
+            if table and len(table) > 0 and table[0] == self.FEDEX_HEADER:
+                tables_by_type["FedEx"].append(table)
 
-    def handle_fedex_tables(self, tables, numer_faktury=None, data_faktury=None):
         airtable_records = []
         errors = []
 
-        if tables:
-            for table in tables:
-                base_data = {
-                    "numer_faktury": numer_faktury,
-                    "data_faktury": data_faktury
-                }
-
-                result = self.handle_fedex_table(table, numer_faktury)
-                if result is None:
-                    continue
-                if "error" in result:
-                    errors.append(result["error"])
-                else:
-                    record = {**base_data, **result}
-                    airtable_records.append({"fields": record})
+        for table_type in tables_by_type:
+            if not tables_by_type[table_type]:
+                continue
+            if table_type == "FedEx":
+                for table in tables_by_type[table_type]:
+                    base_data = {
+                        "numer_faktury": numer_faktury,
+                        "data_faktury": data_faktury
+                    }
+                    result = self.handle_fedex_table(table, numer_faktury)
+                    if result is None:
+                        continue
+                    if "error" in result:
+                        errors.append(result["error"])
+                    else:
+                        record = {**base_data, **result}
+                        airtable_records.append({"fields": record})
 
         return airtable_records, errors
 
     def parse_pdf(self, pdf_path: str):
-        try:
-            with pdfplumber.open(pdf_path) as pdf:
-                file_type = self.detect_file_type(pdf)
+        tables, invoice_number, invoice_date = self.extract_tables_single_strategy(pdf_path)
+        if not tables:
+            return [], {"error": "No tables found in PDF"}
 
-                invoice_number = self.extract_invoice_number(pdf, file_type)
-                invoice_date = self.extract_invoice_date(pdf, file_type)
+        records, errors = self.handle_tables(tables, invoice_number, invoice_date)
+        metadata = {
+            "invoice_number": invoice_number,
+            "invoice_date": invoice_date,
+            "tables_found": len(tables),
+            "records_created": len(records),
+            "errors": errors
+        }
+        return records, metadata
 
-                tables = self.extract_tables(pdf, file_type)
 
-            if not tables:
-                return [], {"error": "No tables found in PDF", "file_type": file_type}
-
-            records, errors = self.handle_tables(tables, invoice_number, invoice_date, file_type)
-
-            metadata = {
-                "invoice_number": invoice_number,
-                "invoice_date": invoice_date,
-                "file_type": file_type,
-                "tables_found": len(tables),
-                "records_created": len(records),
-                "errors": errors
-            }
-
-            return records, metadata
-        except Exception as e:
-            return [], {"error": str(e)}
-
-# Example usage for testing
+# Example usage (for testing)
 if __name__ == "__main__":
     parser = InvoiceParser()
-    pdf_path = "data/invoices/529504604.pdf"
 
+    # Test with a PDF file
+    pdf_path = "test_invoice.pdf"
     if os.path.exists(pdf_path):
         records, metadata = parser.parse_pdf(pdf_path)
+
         print("Metadata:", json.dumps(metadata, indent=2))
         print("Records:", json.dumps(records, indent=2))
     else:
