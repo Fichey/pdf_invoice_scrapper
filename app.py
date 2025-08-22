@@ -120,7 +120,7 @@ def upload_file():
 
         if not records and metadata.get("errors"):
             # Return parsing errors if no records
-            return jsonify({'error': 'Parsing errors occurred', 'log': "\n".join(metadata["errors"])}), 400
+            return jsonify({'error': 'Parsing errors occurred. See logs for details', 'log': "\n".join(metadata["errors"])}), 400
 
         if not records:
             return jsonify({'error': 'No valid FedEx data found in PDF'}), 400
