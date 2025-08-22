@@ -2,6 +2,7 @@ import pdfplumber
 import re
 import json
 import os
+from datetime import datetime
 from typing import List, Dict, Optional, Tuple
 from handle_fedex_table import handle_fedex_table
 
@@ -108,7 +109,7 @@ class InvoiceParser:
                 file_type = self.detect_file_type(pdf)
 
                 invoice_number = self.extract_invoice_number(pdf, file_type)
-                invoice_date = self.extract_invoice_date(pdf, file_type)
+                invoice_date = datetime.strptime(self.extract_invoice_date(pdf, file_type), "%d/%m/%Y").date().isoformat() if self.extract_invoice_date(pdf, file_type) else None
 
                 tables = self.extract_tables(pdf, file_type)
 
@@ -133,11 +134,11 @@ class InvoiceParser:
 # Example usage for testing
 if __name__ == "__main__":
     parser = InvoiceParser()
-    pdf_path = "data/invoices/529504604.pdf"
+    pdf_path = "data/first_page.pdf"
 
     if os.path.exists(pdf_path):
         records, metadata = parser.parse_pdf(pdf_path)
         print("Metadata:", json.dumps(metadata, indent=2))
-        print("Records:", json.dumps(records, indent=2))
+        # print("Records:", json.dumps(records, indent=2))
     else:
         print("No test PDF file found. Use this class in your Flask application.")

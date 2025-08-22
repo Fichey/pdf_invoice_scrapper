@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from typing import List, Dict, Optional
 
-
+# TODO RIGHT NOW ITS JUST A COPY OF FEDEX VERSION
 
 FEDEX_HEADER = [
     'AWB', 'Data wysylki', 'Usługa', 'Sztuki', 'Waga',
